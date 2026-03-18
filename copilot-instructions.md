@@ -1,0 +1,2 @@
+- No init tests unless specifically asked for.
+- Do not try to commit.
