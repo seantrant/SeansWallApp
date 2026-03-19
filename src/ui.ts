@@ -225,3 +225,75 @@ export function getObservationIcon(symbol: string): string {
 export function getForecastIcon(symbolId: string): string {
   return weatherIconMap[symbolId] ?? 'weather-cloudy';
 }
+
+// ---------------------------------------------------------------------------
+// Weather icon color mapping – condition-aware icon tinting
+// ---------------------------------------------------------------------------
+const weatherIconColorMap: Record<string, string> = {
+  'weather-sunny': '#FFD54F',
+  'weather-night': '#90CAF9',
+  'weather-partly-cloudy': '#FFE082',
+  'weather-night-partly-cloudy': '#90CAF9',
+  'weather-cloudy': '#B0BEC5',
+  'weather-partly-rainy': '#64B5F6',
+  'weather-rainy': '#42A5F5',
+  'weather-pouring': '#1E88E5',
+  'weather-snowy-rainy': '#80CBC4',
+  'weather-snowy': '#E0E0E0',
+  'weather-snowy-heavy': '#CFD8DC',
+  'weather-lightning-rainy': '#FFA726',
+  'weather-fog': '#9E9E9E',
+};
+
+export function getObservationIconColor(symbol: string): string {
+  const iconName = getObservationIcon(symbol);
+  return weatherIconColorMap[iconName] ?? colors.text;
+}
+
+export function getForecastIconColor(symbolId: string): string {
+  const iconName = getForecastIcon(symbolId);
+  return weatherIconColorMap[iconName] ?? colors.text;
+}
+
+// ---------------------------------------------------------------------------
+// WMO weather code → icon + color (used by Open-Meteo daily forecast)
+// ---------------------------------------------------------------------------
+const wmoIconMap: Record<number, string> = {
+  0: 'weather-sunny',
+  1: 'weather-sunny',
+  2: 'weather-partly-cloudy',
+  3: 'weather-cloudy',
+  45: 'weather-fog',
+  48: 'weather-fog',
+  51: 'weather-rainy',
+  53: 'weather-rainy',
+  55: 'weather-pouring',
+  56: 'weather-snowy-rainy',
+  57: 'weather-snowy-rainy',
+  61: 'weather-rainy',
+  63: 'weather-rainy',
+  65: 'weather-pouring',
+  66: 'weather-snowy-rainy',
+  67: 'weather-snowy-rainy',
+  71: 'weather-snowy',
+  73: 'weather-snowy',
+  75: 'weather-snowy-heavy',
+  77: 'weather-snowy',
+  80: 'weather-partly-rainy',
+  81: 'weather-rainy',
+  82: 'weather-pouring',
+  85: 'weather-snowy',
+  86: 'weather-snowy-heavy',
+  95: 'weather-lightning-rainy',
+  96: 'weather-lightning-rainy',
+  99: 'weather-lightning-rainy',
+};
+
+export function getWmoIcon(code: number): string {
+  return wmoIconMap[code] ?? 'weather-cloudy';
+}
+
+export function getWmoIconColor(code: number): string {
+  const iconName = getWmoIcon(code);
+  return weatherIconColorMap[iconName] ?? colors.text;
+}

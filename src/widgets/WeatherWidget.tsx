@@ -2,8 +2,8 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
-import type { WeatherData, WeatherForecast } from '../types';
-import { colors, spacing, borderRadius, getObservationIcon, getForecastIcon } from '../ui';
+import type { WeatherData, WeatherForecast, DailyForecast } from '../types';
+import { colors, spacing, borderRadius, getObservationIcon, getForecastIcon, getObservationIconColor, getForecastIconColor, getWmoIcon, getWmoIconColor } from '../ui';
 
 // ---------------------------------------------------------------------------
 // WeatherWidget – Current conditions + 48h forecast for Dublin
@@ -55,7 +55,7 @@ export default function WeatherWidget({ weather, isLoading, error }: Props) {
             <MaterialCommunityIcons
               name={getObservationIcon(current.symbol) as keyof typeof MaterialCommunityIcons.glyphMap}
               size={44}
-              color={colors.accent}
+              color={getObservationIconColor(current.symbol)}
             />
             <Text style={styles.temperature}>{current.temperature}°</Text>
           </View>
@@ -76,14 +76,14 @@ export default function WeatherWidget({ weather, isLoading, error }: Props) {
         </View>
       )}
 
-      {/* Forecast scroll */}
-      {weather.forecast.length > 0 && (
+      {/* 7-Day daily forecast */}
+      {weather.dailyForecast.length > 0 && (
         <>
           <View style={styles.separator} />
-          <Text style={styles.sectionLabel}>Forecast</Text>
+          <Text style={styles.sectionLabel}>7-Day Forecast</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.forecastScroll}>
-            {weather.forecast.map((fc, i) => (
-              <ForecastCard key={i} forecast={fc} />
+            {weather.dailyForecast.map((day) => (
+              <DailyForecastCard key={day.date} day={day} />
             ))}
           </ScrollView>
         </>
@@ -123,22 +123,27 @@ function DetailChip({ icon, label }: { icon: string; label: string }) {
   );
 }
 
-function ForecastCard({ forecast }: { forecast: WeatherForecast }) {
-  const timeLabel = dayjs(forecast.time).format('HH:mm');
-  const dayLabel = dayjs(forecast.time).format('ddd');
+function DailyForecastCard({ day }: { day: DailyForecast }) {
+  const d = dayjs(day.date);
+  const isToday = d.isSame(dayjs(), 'day');
 
   return (
-    <View style={styles.forecastCard}>
-      <Text style={styles.forecastDay}>{dayLabel}</Text>
-      <Text style={styles.forecastTime}>{timeLabel}</Text>
+    <View style={[styles.dayColumn, isToday && styles.dayColumnToday]}>
+      <Text style={[styles.dayColumnLabel, isToday && styles.dayColumnLabelToday]}>
+        {isToday ? 'Today' : d.format('ddd')}
+      </Text>
+      <Text style={styles.dayColumnDate}>{d.format('D MMM')}</Text>
       <MaterialCommunityIcons
-        name={getForecastIcon(forecast.symbolId) as keyof typeof MaterialCommunityIcons.glyphMap}
+        name={getWmoIcon(day.weatherCode) as keyof typeof MaterialCommunityIcons.glyphMap}
         size={22}
-        color={colors.text}
+        color={getWmoIconColor(day.weatherCode)}
       />
-      <Text style={styles.forecastTemp}>{Math.round(forecast.temperature)}°</Text>
-      {forecast.precipitation > 0 && (
-        <Text style={styles.forecastRain}>{forecast.precipitation}mm</Text>
+      <View style={styles.tempRange}>
+        <Text style={styles.tempHigh}>{Math.round(day.temperatureMax)}°</Text>
+        <Text style={styles.tempLow}>{Math.round(day.temperatureMin)}°</Text>
+      </View>
+      {day.precipitationSum > 0 && (
+        <Text style={styles.forecastRain}>{day.precipitationSum.toFixed(1)}mm</Text>
       )}
     </View>
   );
@@ -246,33 +251,55 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
 
-  forecastCard: {
+  dayColumn: {
     alignItems: 'center',
     backgroundColor: colors.surfaceElevated,
     borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     marginRight: spacing.sm,
-    minWidth: 60,
-    gap: 2,
+    minWidth: 68,
+    gap: spacing.xs,
   },
 
-  forecastDay: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.muted,
+  dayColumnToday: {
+    backgroundColor: colors.calendarToday,
+    borderWidth: 1,
+    borderColor: colors.accent + '44',
   },
 
-  forecastTime: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-
-  forecastTemp: {
-    fontSize: 14,
-    fontWeight: '600',
+  dayColumnLabel: {
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.text,
+  },
+
+  dayColumnLabelToday: {
+    color: colors.accent,
+  },
+
+  dayColumnDate: {
+    fontSize: 10,
+    color: colors.muted,
+    marginBottom: 2,
+  },
+
+  tempRange: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'baseline',
+  },
+
+  tempHigh: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+
+  tempLow: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.muted,
   },
 
   forecastRain: {

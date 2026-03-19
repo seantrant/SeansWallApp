@@ -38,6 +38,9 @@ interface Props {
 
   // Settings
   onOpenSettings: () => void;
+
+  // Calendar month navigation
+  onCalendarMonthChange?: (date: Date) => void;
 }
 
 export default function DashboardScreen({
@@ -52,6 +55,7 @@ export default function DashboardScreen({
   recordsError,
   recordsLastSynced,
   onOpenSettings,
+  onCalendarMonthChange,
 }: Props) {
   return (
     <View style={styles.root}>
@@ -63,6 +67,7 @@ export default function DashboardScreen({
               events={calendarEvents}
               isLoading={calendarLoading}
               error={calendarError}
+              onMonthChange={onCalendarMonthChange}
             />
           </View>
         </View>

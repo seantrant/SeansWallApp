@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
-import type { WeatherData, WeatherForecast, WeatherObservation } from '../types';
+import type { WeatherData, WeatherForecast, WeatherObservation, DailyForecast } from '../types';
 
 // ---------------------------------------------------------------------------
 // Met Éireann API endpoints
@@ -158,26 +158,65 @@ export async function fetchForecast(
 }
 
 // ---------------------------------------------------------------------------
+// Open-Meteo daily forecast – free 7-day forecast (no API key)
+// ---------------------------------------------------------------------------
+
+export async function fetchDailyForecast(
+  lat = DUBLIN_LAT,
+  long = DUBLIN_LONG,
+): Promise<DailyForecast[]> {
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${long}` +
+    `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum` +
+    `&timezone=auto&forecast_days=7`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Open-Meteo API returned ${response.status}`);
+  }
+
+  const json = await response.json();
+  const daily = json.daily;
+  if (!daily || !daily.time) return [];
+
+  const results: DailyForecast[] = [];
+  for (let i = 0; i < daily.time.length; i++) {
+    results.push({
+      date: daily.time[i],
+      temperatureMax: daily.temperature_2m_max[i],
+      temperatureMin: daily.temperature_2m_min[i],
+      weatherCode: daily.weathercode[i],
+      precipitationSum: daily.precipitation_sum[i] ?? 0,
+    });
+  }
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Combined fetch
 // ---------------------------------------------------------------------------
 
 export async function fetchWeatherData(
   location = 'dublin',
 ): Promise<WeatherData> {
-  const [observations, forecast] = await Promise.allSettled([
+  const [observations, forecast, daily] = await Promise.allSettled([
     fetchObservations(location),
     fetchForecast(),
+    fetchDailyForecast(),
   ]);
 
   const hourly =
     observations.status === 'fulfilled' ? observations.value : [];
   const forecastData =
     forecast.status === 'fulfilled' ? forecast.value : [];
+  const dailyData =
+    daily.status === 'fulfilled' ? daily.value : [];
 
   return {
     current: latestObservation(hourly),
     hourlyObservations: hourly,
     forecast: forecastData,
+    dailyForecast: dailyData,
     fetchedAt: new Date().toISOString(),
   };
 }

@@ -43,6 +43,7 @@ export default function App() {
 
   // ---- Refs for intervals -------------------------------------------------
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+  const calendarViewDateRef = useRef(dayjs());
 
   // ---- Kiosk mode: hide system bars on mount (Android only) ----------------
   useEffect(() => {
@@ -75,8 +76,9 @@ export default function App() {
     setCalendarLoading(true);
     setCalendarError(null);
     try {
-      const start = dayjs().startOf('month').subtract(7, 'day').toDate();
-      const end = dayjs().endOf('month').add(14, 'day').toDate();
+      const viewDate = calendarViewDateRef.current;
+      const start = viewDate.startOf('month').subtract(7, 'day').toDate();
+      const end = viewDate.endOf('month').add(14, 'day').toDate();
       const events = await fetchCalendarEvents(
         caldavUrl,
         caldavUsername,
@@ -93,6 +95,14 @@ export default function App() {
       setCalendarLoading(false);
     }
   }, [settings.caldavUrl, settings.caldavUsername, settings.caldavPassword]);
+
+  const handleCalendarMonthChange = useCallback(
+    (date: Date) => {
+      calendarViewDateRef.current = dayjs(date);
+      refreshCalendar();
+    },
+    [refreshCalendar],
+  );
 
   const refreshWeather = useCallback(async () => {
     setWeatherLoading(true);
@@ -143,7 +153,28 @@ export default function App() {
     // Set up intervals
     intervalsRef.current.push(setInterval(refreshCalendar, intervalMs));
     intervalsRef.current.push(setInterval(refreshWeather, 15 * 60 * 1000)); // weather every 15 min
-    intervalsRef.current.push(setInterval(refreshRecords, intervalMs));
+
+    // Schedule records refresh at 22:30 daily
+    const scheduleRecordsAt2230 = () => {
+      const now = dayjs();
+      let next2230 = now.hour(22).minute(30).second(0).millisecond(0);
+      if (now.isAfter(next2230)) {
+        next2230 = next2230.add(1, 'day');
+      }
+      const msUntil = next2230.diff(now);
+
+      const timeoutId = setTimeout(() => {
+        refreshRecords();
+        // After the first trigger, repeat every 24 hours
+        const dailyId = setInterval(refreshRecords, 24 * 60 * 60 * 1000);
+        intervalsRef.current.push(dailyId);
+      }, msUntil);
+
+      // Store timeout so it gets cleared on cleanup
+      intervalsRef.current.push(timeoutId as unknown as ReturnType<typeof setInterval>);
+    };
+
+    scheduleRecordsAt2230();
 
     return () => {
       for (const id of intervalsRef.current) clearInterval(id);
@@ -220,6 +251,7 @@ export default function App() {
         recordsError={recordsError}
         recordsLastSynced={recordsLastSynced}
         onOpenSettings={() => setSettingsVisible(true)}
+        onCalendarMonthChange={handleCalendarMonthChange}
       />
 
       {settingsVisible && (

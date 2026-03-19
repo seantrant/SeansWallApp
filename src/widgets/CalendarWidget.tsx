@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import type { CalendarEvent } from '../types';
@@ -13,11 +13,12 @@ interface Props {
   events: CalendarEvent[];
   isLoading: boolean;
   error: string | null;
+  onMonthChange?: (date: Date) => void;
 }
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export default function CalendarWidget({ events, isLoading, error }: Props) {
+export default function CalendarWidget({ events, isLoading, error, onMonthChange }: Props) {
   const [viewDate, setViewDate] = React.useState(() => dayjs());
 
   const monthLabel = viewDate.format('MMMM YYYY');
@@ -25,9 +26,21 @@ export default function CalendarWidget({ events, isLoading, error }: Props) {
   const calendarGrid = useMemo(() => buildMonthGrid(viewDate), [viewDate]);
   const eventsByDate = useMemo(() => groupEventsByDate(events), [events]);
 
-  const goToPrevMonth = () => setViewDate((d: dayjs.Dayjs) => d.subtract(1, 'month'));
-  const goToNextMonth = () => setViewDate((d: dayjs.Dayjs) => d.add(1, 'month'));
-  const goToToday = () => setViewDate(dayjs());
+  const goToPrevMonth = () => {
+    const next = viewDate.subtract(1, 'month');
+    setViewDate(next);
+    onMonthChange?.(next.toDate());
+  };
+  const goToNextMonth = () => {
+    const next = viewDate.add(1, 'month');
+    setViewDate(next);
+    onMonthChange?.(next.toDate());
+  };
+  const goToToday = () => {
+    const next = dayjs();
+    setViewDate(next);
+    onMonthChange?.(next.toDate());
+  };
 
   const todayStr = dayjs().format('YYYY-MM-DD');
 
@@ -66,7 +79,7 @@ export default function CalendarWidget({ events, isLoading, error }: Props) {
       </View>
 
       {/* Day-of-week header */}
-      <View style={styles.weekRow}>
+      <View style={styles.dayHeaderRow}>
         {DAYS_OF_WEEK.map((d) => (
           <View key={d} style={styles.weekDayCell}>
             <Text style={styles.weekDayText}>{d}</Text>
@@ -106,10 +119,18 @@ export default function CalendarWidget({ events, isLoading, error }: Props) {
                     {dayEvents.slice(0, 3).map((evt, ei) => (
                       <View
                         key={evt.id + ei}
-                        style={[styles.eventPill, { backgroundColor: evt.color + '33' }]}
+                        style={[
+                          styles.eventPill,
+                          {
+                            backgroundColor: evt.color,
+                            borderLeftColor: brightenColor(evt.color),
+                          },
+                        ]}
                       >
-                        <View style={[styles.eventDot, { backgroundColor: evt.color }]} />
-                        <Text style={styles.eventText} numberOfLines={1}>
+                        <Text
+                          style={styles.eventText}
+                          numberOfLines={1}
+                        >
                           {evt.summary}
                         </Text>
                       </View>
@@ -124,6 +145,12 @@ export default function CalendarWidget({ events, isLoading, error }: Props) {
           </View>
         ))}
       </View>
+      {/* Loading overlay for month changes */}
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color={colors.accent} />
+        </View>
+      )}
     </View>
   );
 }
@@ -131,6 +158,19 @@ export default function CalendarWidget({ events, isLoading, error }: Props) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Brighten a hex color for the accent left border */
+function brightenColor(hex: string): string {
+  try {
+    const cleaned = hex.replace('#', '');
+    const r = Math.min(255, parseInt(cleaned.substring(0, 2), 16) + 60);
+    const g = Math.min(255, parseInt(cleaned.substring(2, 4), 16) + 60);
+    const b = Math.min(255, parseInt(cleaned.substring(4, 6), 16) + 60);
+    return `rgb(${r}, ${g}, ${b})`;
+  } catch {
+    return '#FFFFFF';
+  }
+}
 
 interface DayCell {
   date: dayjs.Dayjs;
@@ -210,6 +250,10 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
 
+  dayHeaderRow: {
+    flexDirection: 'row',
+  },
+
   weekRow: {
     flexDirection: 'row',
     flex: 1,
@@ -272,27 +316,33 @@ const styles = StyleSheet.create({
   eventPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 3,
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-  },
-
-  eventDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    marginRight: 3,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderLeftWidth: 3,
   },
 
   eventText: {
-    fontSize: 9,
-    color: colors.text,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
     flex: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   moreText: {
     fontSize: 8,
     color: colors.muted,
     paddingLeft: 3,
+  },
+
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(30, 30, 30, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: borderRadius.lg,
   },
 });

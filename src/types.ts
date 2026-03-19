@@ -48,7 +48,17 @@ export interface WeatherData {
   current: WeatherObservation | null;
   hourlyObservations: WeatherObservation[];
   forecast: WeatherForecast[];
+  dailyForecast: DailyForecast[];
   fetchedAt: string;
+}
+
+/** A single day's forecast from Open-Meteo daily API. */
+export interface DailyForecast {
+  date: string;               // YYYY-MM-DD
+  temperatureMax: number;
+  temperatureMin: number;
+  weatherCode: number;         // WMO weather code
+  precipitationSum: number;
 }
 
 /** A personal best record – mirrors SeansAppServer snapshot schema. */
