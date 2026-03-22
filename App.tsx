@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import dayjs from 'dayjs';
 
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -15,12 +16,21 @@ import { fetchRecords, fetchServerHealth } from './src/services/seansAppService'
 import type { AppSettings, CalendarEvent, PersonalRecord, WeatherData } from './src/types';
 import { DEFAULT_SETTINGS } from './src/types';
 import { colors } from './src/ui';
+import { useMotionWake } from './src/useMotionWake';
 
 // ---------------------------------------------------------------------------
 // App – Root component for SeansWallApp
 // ---------------------------------------------------------------------------
 
 export default function App() {
+  // ---- Camera permission for motion detection ----------------------------
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const cameraRef = useRef<any>(null);
+  const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ---- Motion-wake hook ---------------------------------------------------
+  const { screenAwake, onFrameCaptured, triggerWake } = useMotionWake();
+
   // ---- Settings & UI state ------------------------------------------------
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -44,6 +54,42 @@ export default function App() {
   // ---- Refs for intervals -------------------------------------------------
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const calendarViewDateRef = useRef(dayjs());
+
+  // ---- Request camera permission on mount --------------------------------
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (!cameraPermission?.granted) {
+      requestCameraPermission();
+    }
+  }, [cameraPermission, requestCameraPermission]);
+
+  // ---- Camera capture loop for motion detection --------------------------
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    if (!cameraPermission?.granted) return;
+
+    // Capture a tiny frame every 2 seconds
+    captureIntervalRef.current = setInterval(async () => {
+      try {
+        if (!cameraRef.current) return;
+        const photo = await cameraRef.current.takePicture({
+          quality: 0.1,
+          base64: true,
+          shutterSound: false,
+          pictureSize: '352x288',
+        });
+        if (photo?.base64) {
+          onFrameCaptured(photo.base64);
+        }
+      } catch {
+        // Camera may not be ready yet – ignore
+      }
+    }, 2000);
+
+    return () => {
+      if (captureIntervalRef.current) clearInterval(captureIntervalRef.current);
+    };
+  }, [cameraPermission?.granted, onFrameCaptured]);
 
   // ---- Kiosk mode: hide system bars on mount (Android only) ----------------
   useEffect(() => {
@@ -236,8 +282,22 @@ export default function App() {
   // ---- Render -------------------------------------------------------------
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }} onTouchStart={triggerWake}>
       <StatusBar hidden />
+
+      {/* Hidden camera for motion detection – positioned off-screen */}
+      {Platform.OS === 'android' && cameraPermission?.granted && (
+        <CameraView
+          ref={cameraRef}
+          facing="front"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            opacity: 0,
+          }}
+        />
+      )}
 
       <DashboardScreen
         calendarEvents={calendarEvents}
@@ -250,6 +310,7 @@ export default function App() {
         recordsLoading={recordsLoading}
         recordsError={recordsError}
         recordsLastSynced={recordsLastSynced}
+        onRefreshRecords={refreshRecords}
         onOpenSettings={() => setSettingsVisible(true)}
         onCalendarMonthChange={handleCalendarMonthChange}
       />

@@ -1,6 +1,7 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import dayjs from 'dayjs';
 import type { PersonalRecord } from '../types';
 import { colors, spacing, borderRadius } from '../ui';
 
@@ -13,6 +14,7 @@ interface Props {
   isLoading: boolean;
   error: string | null;
   lastSyncedAt: string | null;
+  onRefresh?: () => void;
 }
 
 export default function SeansStuffWidget({
@@ -20,11 +22,12 @@ export default function SeansStuffWidget({
   isLoading,
   error,
   lastSyncedAt,
+  onRefresh,
 }: Props) {
   if (!records.length && isLoading) {
     return (
       <View style={styles.container}>
-        <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} />
+        <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} onRefresh={onRefresh} />
         <View style={styles.centered}>
           <MaterialCommunityIcons name="sync" size={28} color={colors.muted} />
           <Text style={styles.emptyText}>Loading records…</Text>
@@ -36,7 +39,7 @@ export default function SeansStuffWidget({
   if (!records.length && error) {
     return (
       <View style={styles.container}>
-        <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} />
+        <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} onRefresh={onRefresh} />
         <View style={styles.centered}>
           <MaterialCommunityIcons name="server-off" size={28} color={colors.warning} />
           <Text style={styles.emptyText}>{error}</Text>
@@ -48,7 +51,7 @@ export default function SeansStuffWidget({
   if (!records.length) {
     return (
       <View style={styles.container}>
-        <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} />
+        <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} onRefresh={onRefresh} />
         <View style={styles.centered}>
           <MaterialCommunityIcons name="trophy-outline" size={28} color={colors.muted} />
           <Text style={styles.emptyText}>No records yet</Text>
@@ -59,7 +62,7 @@ export default function SeansStuffWidget({
 
   return (
     <View style={styles.container}>
-      <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} />
+      <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} onRefresh={onRefresh} />
       <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
         {records.map((record) => (
           <RecordRow key={record.id} record={record} />
@@ -76,20 +79,34 @@ export default function SeansStuffWidget({
 function WidgetHeader({
   lastSyncedAt,
   isLoading,
+  onRefresh,
 }: {
   lastSyncedAt: string | null;
   isLoading: boolean;
+  onRefresh?: () => void;
 }) {
+  const formattedTime = lastSyncedAt
+    ? dayjs(lastSyncedAt).format('HH:mm')
+    : null;
+
   return (
     <View style={styles.headerRow}>
       <MaterialCommunityIcons name="trophy-variant" size={18} color={colors.accent} />
       <Text style={styles.headerTitle}>Records</Text>
-      {isLoading && (
-        <MaterialCommunityIcons name="sync" size={14} color={colors.muted} />
+      {formattedTime && (
+        <Text style={styles.lastUpdated}>{formattedTime}</Text>
       )}
-      {lastSyncedAt && (
-        <View style={[styles.statusDot, { backgroundColor: colors.accent }]} />
-      )}
+      <TouchableOpacity
+        onPress={onRefresh}
+        disabled={isLoading}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <MaterialCommunityIcons
+          name="refresh"
+          size={16}
+          color={isLoading ? colors.muted : colors.textSecondary}
+        />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -162,10 +179,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+  lastUpdated: {
+    fontSize: 10,
+    color: colors.muted,
   },
 
   scrollArea: {

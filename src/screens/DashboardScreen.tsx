@@ -35,6 +35,7 @@ interface Props {
   recordsLoading: boolean;
   recordsError: string | null;
   recordsLastSynced: string | null;
+  onRefreshRecords?: () => void;
 
   // Settings
   onOpenSettings: () => void;
@@ -54,6 +55,7 @@ export default function DashboardScreen({
   recordsLoading,
   recordsError,
   recordsLastSynced,
+  onRefreshRecords,
   onOpenSettings,
   onCalendarMonthChange,
 }: Props) {
@@ -88,6 +90,7 @@ export default function DashboardScreen({
               isLoading={recordsLoading}
               error={recordsError}
               lastSyncedAt={recordsLastSynced}
+              onRefresh={onRefreshRecords}
             />
           </View>
         </View>

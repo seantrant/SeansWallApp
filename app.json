@@ -10,7 +10,13 @@
       "translucent": true
     },
     "android": {
-      "package": "com.whywouldiwantausername.wallapp"
+      "package": "com.whywouldiwantausername.wallapp",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.WRITE_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -23,12 +29,26 @@
           "visibility": "hidden",
           "behavior": "overlay-swipe"
         }
-      ]
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow motion detection to wake the screen"
+        }
+      ],
+      "./plugins/withAndroidNetworkSecurity",
+      "./plugins/withSensorLandscape"
     ],
     "extra": {
       "eas": {
-        "projectId": "00000000-0000-0000-0000-000000000000"
+        "projectId": "eb9c99e5-d690-4ffe-b379-23ec54be04e0"
+      },
+      "expo-navigation-bar": {
+        "position": "absolute",
+        "visibility": "hidden",
+        "behavior": "overlay-swipe"
       }
-    }
+    },
+    "owner": "whywouldiwantausername"
   }
 }
