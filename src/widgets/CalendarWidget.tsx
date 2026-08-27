@@ -24,7 +24,7 @@ export default function CalendarWidget({ events, isLoading, error, onMonthChange
   const monthLabel = viewDate.format('MMMM YYYY');
 
   const calendarGrid = useMemo(() => buildMonthGrid(viewDate), [viewDate]);
-  const eventsByDate = useMemo(() => groupEventsByDate(events), [events]);
+  const { eventsByDate, eventSpan } = useMemo(() => indexEvents(events), [events]);
 
   const goToPrevMonth = () => {
     const next = viewDate.subtract(1, 'month');
@@ -116,25 +116,39 @@ export default function CalendarWidget({ events, isLoading, error, onMonthChange
                     {day.date.date()}
                   </Text>
                   <View style={styles.eventsContainer}>
-                    {dayEvents.slice(0, 3).map((evt, ei) => (
-                      <View
-                        key={evt.id + ei}
-                        style={[
-                          styles.eventPill,
-                          {
-                            backgroundColor: evt.color,
-                            borderLeftColor: brightenColor(evt.color),
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={styles.eventText}
-                          numberOfLines={1}
+                    {dayEvents.slice(0, 3).map((evt) => {
+                      const evtKey = eventKey(evt);
+                      const span = eventSpan.get(evtKey);
+                      const continuesBefore = span ? dateStr > span.first : false;
+                      const continuesAfter = span ? dateStr < span.last : false;
+                      const pillColor = eventColor(evt);
+
+                      return (
+                        <View
+                          key={evtKey}
+                          style={[
+                            styles.eventPill,
+                            {
+                              backgroundColor: pillColor,
+                              borderLeftColor: brightenColor(pillColor),
+                            },
+                          ]}
                         >
-                          {evt.summary}
-                        </Text>
-                      </View>
-                    ))}
+                          {continuesBefore && (
+                            <Text style={styles.eventContinuation}>‹</Text>
+                          )}
+                          <Text
+                            style={styles.eventText}
+                            numberOfLines={1}
+                          >
+                            {evt.summary}
+                          </Text>
+                          {continuesAfter && (
+                            <Text style={styles.eventContinuation}>›</Text>
+                          )}
+                        </View>
+                      );
+                    })}
                     {dayEvents.length > 3 && (
                       <Text style={styles.moreText}>+{dayEvents.length - 3} more</Text>
                     )}
@@ -158,6 +172,46 @@ export default function CalendarWidget({ events, isLoading, error, onMonthChange
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Distinct, dark-theme-friendly colours used to colour-code calendar entries. */
+const EVENT_PALETTE = [
+  '#E57373', // red
+  '#F06292', // pink
+  '#BA68C8', // purple
+  '#9575CD', // deep purple
+  '#7986CB', // indigo
+  '#64B5F6', // blue
+  '#4FC3F7', // light blue
+  '#4DD0E1', // cyan
+  '#4DB6AC', // teal
+  '#81C784', // green
+  '#AED581', // light green
+  '#FFB74D', // orange
+  '#FFD54F', // amber
+  '#A1887F', // brown
+];
+
+/**
+ * Stable per-event colour derived from the event UID.
+ *
+ * Because the UID is identical across all days of a multi-day event, every one
+ * of its pills on the calendar shares the same colour – visually connecting
+ * them into one item. Different entries get (almost certainly) different
+ * colours, so each entry is individually colour-coded.
+ */
+function eventColor(evt: CalendarEvent): string {
+  const seed = evt.id || evt.summary;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return EVENT_PALETTE[hash % EVENT_PALETTE.length];
+}
+
+/** Stable key identifying one logical event occurrence. */
+function eventKey(evt: CalendarEvent): string {
+  return `${evt.id}|${evt.start.getTime()}`;
+}
 
 /** Brighten a hex color for the accent left border */
 function brightenColor(hex: string): string {
@@ -196,25 +250,65 @@ function buildMonthGrid(viewDate: dayjs.Dayjs): DayCell[][] {
   return weeks;
 }
 
-function groupEventsByDate(events: CalendarEvent[]): Map<string, CalendarEvent[]> {
-  const map = new Map<string, CalendarEvent[]>();
+/**
+ * Build a map of date → events for the month grid, plus the span of each event
+ * (first/last date) so multi-day pills can show continuation markers.
+ */
+function indexEvents(
+  events: CalendarEvent[],
+): { eventsByDate: Map<string, CalendarEvent[]>; eventSpan: Map<string, { first: string; last: string }> } {
+  const eventsByDate = new Map<string, CalendarEvent[]>();
+  const eventSpan = new Map<string, { first: string; last: string }>();
 
   for (const evt of events) {
-    // For multi-day events, add to each day in range
-    const start = dayjs(evt.start).startOf('day');
-    const end = dayjs(evt.end).startOf('day');
-    let cursor = start;
+    const dates = eventDates(evt);
+    const key = eventKey(evt);
 
-    while (cursor.isBefore(end) || cursor.isSame(end, 'day')) {
-      const key = cursor.format('YYYY-MM-DD');
-      const list = map.get(key) ?? [];
-      list.push(evt);
-      map.set(key, list);
-      cursor = cursor.add(1, 'day');
+    if (dates.length > 0) {
+      eventSpan.set(key, { first: dates[0], last: dates[dates.length - 1] });
+    }
+
+    for (const date of dates) {
+      const list = eventsByDate.get(date) ?? [];
+      // Defensive dedup: a date must never show the same event twice.
+      if (!list.some((e) => eventKey(e) === key)) {
+        list.push(evt);
+        eventsByDate.set(date, list);
+      }
     }
   }
 
-  return map;
+  return { eventsByDate, eventSpan };
+}
+
+/**
+ * The calendar dates an event occupies, as YYYY-MM-DD strings.
+ *
+ * iCal DTEND is *exclusive*: an all-day event that ends on day X runs through
+ * the end of X-1, so it must not be rendered on X. Timed events that finish at
+ * exactly 00:00 likewise belong to the previous day only.
+ */
+function eventDates(evt: CalendarEvent): string[] {
+  const startDay = dayjs(evt.start).startOf('day');
+  const endDay = dayjs(evt.end).startOf('day');
+
+  const endsAtMidnight =
+    evt.end.getHours() === 0 &&
+    evt.end.getMinutes() === 0 &&
+    evt.end.getSeconds() === 0;
+
+  const exclusiveEnd = evt.allDay || endsAtMidnight;
+  const lastDay = exclusiveEnd ? endDay.subtract(1, 'day') : endDay;
+
+  const dates: string[] = [];
+  let cursor = startDay;
+
+  while (cursor.isBefore(lastDay) || cursor.isSame(lastDay, 'day')) {
+    dates.push(cursor.format('YYYY-MM-DD'));
+    cursor = cursor.add(1, 'day');
+  }
+
+  return dates;
 }
 
 // ---------------------------------------------------------------------------
@@ -327,6 +421,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     flex: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  eventContinuation: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,

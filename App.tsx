@@ -171,9 +171,11 @@ export default function App() {
     setRecordsLoading(true);
     setRecordsError(null);
     try {
-      const data = await fetchRecords(settings.serverUrl);
-      setRecords(data);
-      setRecordsLastSynced(new Date().toISOString());
+      const result = await fetchRecords(settings.serverUrl);
+      setRecords(result.records);
+      // Show the server's own snapshot timestamp, so a stale snapshot on the
+      // server is immediately visible instead of being masked by "now".
+      setRecordsLastSynced(result.savedAt ?? new Date().toISOString());
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Server fetch failed';
       setRecordsError(message);

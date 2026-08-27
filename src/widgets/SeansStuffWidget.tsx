@@ -63,6 +63,14 @@ export default function SeansStuffWidget({
   return (
     <View style={styles.container}>
       <WidgetHeader lastSyncedAt={lastSyncedAt} isLoading={isLoading} onRefresh={onRefresh} />
+      {error && records.length > 0 && (
+        <View style={styles.refreshErrorBanner}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={13} color={colors.warning} />
+          <Text style={styles.refreshErrorText} numberOfLines={1}>
+            Refresh failed – showing last loaded records
+          </Text>
+        </View>
+      )}
       <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
         {records.map((record) => (
           <RecordRow key={record.id} record={record} />
@@ -76,6 +84,15 @@ export default function SeansStuffWidget({
 // Sub-components
 // ---------------------------------------------------------------------------
 
+/**
+ * Format the server snapshot's save time. Includes the date when the snapshot
+ * is not from today, so a stale server snapshot is obvious at a glance.
+ */
+function formatSyncTime(iso: string): string {
+  const time = dayjs(iso);
+  return time.isSame(dayjs(), 'day') ? time.format('HH:mm') : time.format('D MMM HH:mm');
+}
+
 function WidgetHeader({
   lastSyncedAt,
   isLoading,
@@ -85,9 +102,7 @@ function WidgetHeader({
   isLoading: boolean;
   onRefresh?: () => void;
 }) {
-  const formattedTime = lastSyncedAt
-    ? dayjs(lastSyncedAt).format('HH:mm')
-    : null;
+  const formattedTime = lastSyncedAt ? formatSyncTime(lastSyncedAt) : null;
 
   return (
     <View style={styles.headerRow}>
@@ -182,6 +197,23 @@ const styles = StyleSheet.create({
   lastUpdated: {
     fontSize: 10,
     color: colors.muted,
+  },
+
+  refreshErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.warning + '1A',
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    marginBottom: spacing.sm,
+  },
+
+  refreshErrorText: {
+    fontSize: 10,
+    color: colors.warning,
+    flex: 1,
   },
 
   scrollArea: {

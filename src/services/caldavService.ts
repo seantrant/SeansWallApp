@@ -50,7 +50,17 @@ export async function fetchCalendars(
   const client = await getClient(serverUrl, username, password);
   const calendars = await client.fetchCalendars();
 
-  return calendars.map((cal) => ({
+  // Deduplicate by calendar URL – some servers (e.g. Nextcloud) list the same
+  // calendar more than once (shared / subscribed copies), which would otherwise
+  // cause every event in it to be fetched and rendered twice.
+  const seenUrls = new Set<string>();
+  const unique = calendars.filter((cal) => {
+    if (!cal.url || seenUrls.has(cal.url)) return false;
+    seenUrls.add(cal.url);
+    return true;
+  });
+
+  return unique.map((cal) => ({
     url: cal.url,
     displayName: typeof cal.displayName === 'string' ? cal.displayName : 'Calendar',
     color: cal.calendarColor ?? '#1DB954',
@@ -68,12 +78,12 @@ export async function fetchCalendarEvents(
   rangeEnd: Date,
 ): Promise<CalendarEvent[]> {
   const client = await getClient(serverUrl, username, password);
-  const calendars = await client.fetchCalendars();
+  const calendars = await fetchCalendars(serverUrl, username, password);
   const events: CalendarEvent[] = [];
 
   for (const calendar of calendars) {
-    const calName = typeof calendar.displayName === 'string' ? calendar.displayName : 'Calendar';
-    const calColor = calendar.calendarColor ?? '#1DB954';
+    const calName = calendar.displayName;
+    const calColor = calendar.color;
 
     try {
       const objects = await client.fetchCalendarObjects({
@@ -82,6 +92,10 @@ export async function fetchCalendarEvents(
           start: rangeStart.toISOString(),
           end: rangeEnd.toISOString(),
         },
+        // Ask the server to expand recurring events into their concrete
+        // occurrences so a repeating item appears on every date it actually
+        // happens, not just on its series start date.
+        expand: true,
       });
 
       for (const obj of objects) {
@@ -93,8 +107,31 @@ export async function fetchCalendarEvents(
     }
   }
 
-  events.sort((a, b) => a.start.getTime() - b.start.getTime());
-  return events;
+  return dedupeEvents(events);
+}
+
+/**
+ * Remove duplicate calendar events.
+ *
+ * The same logical event can reach us multiple times: a calendar listed twice,
+ * an event shared between calendars, or a recurring master returned alongside
+ * its first expanded instance. Events are keyed by their UID + start time so
+ * genuinely different occurrences of a series (same UID, different day) are
+ * preserved while true duplicates collapse.
+ */
+function dedupeEvents(events: CalendarEvent[]): CalendarEvent[] {
+  const seen = new Set<string>();
+  const unique: CalendarEvent[] = [];
+
+  for (const evt of events) {
+    const key = `${evt.id}|${evt.start.getTime()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(evt);
+  }
+
+  unique.sort((a, b) => a.start.getTime() - b.start.getTime());
+  return unique;
 }
 
 // ---------------------------------------------------------------------------

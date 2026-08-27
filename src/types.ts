@@ -52,6 +52,18 @@ export interface WeatherData {
   fetchedAt: string;
 }
 
+/** A single part-of-day forecast segment (Night / Morning / Afternoon / Evening). */
+export interface DailyForecastPart {
+  label: 'Night' | 'Morning' | 'Afternoon' | 'Evening';
+  startHour: number;           // 0, 6, 12 or 18
+  temperatureMax: number;
+  temperatureMin: number;
+  weatherCode: number;         // WMO weather code (most significant in the part)
+  precipitationProbability: number; // max chance of precipitation (0–100)
+  precipitationSum: number;    // mm
+  windSpeedMax: number;        // km/h
+}
+
 /** A single day's forecast from Open-Meteo daily API. */
 export interface DailyForecast {
   date: string;               // YYYY-MM-DD
@@ -59,6 +71,7 @@ export interface DailyForecast {
   temperatureMin: number;
   weatherCode: number;         // WMO weather code
   precipitationSum: number;
+  parts: DailyForecastPart[];  // part-of-day breakdown (always 4 entries)
 }
 
 /** A personal best record – mirrors SeansAppServer snapshot schema. */

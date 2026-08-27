@@ -128,22 +128,45 @@ function DailyForecastCard({ day }: { day: DailyForecast }) {
   const isToday = d.isSame(dayjs(), 'day');
 
   return (
-    <View style={[styles.dayColumn, isToday && styles.dayColumnToday]}>
-      <Text style={[styles.dayColumnLabel, isToday && styles.dayColumnLabelToday]}>
-        {isToday ? 'Today' : d.format('ddd')}
-      </Text>
-      <Text style={styles.dayColumnDate}>{d.format('D MMM')}</Text>
-      <MaterialCommunityIcons
-        name={getWmoIcon(day.weatherCode) as keyof typeof MaterialCommunityIcons.glyphMap}
-        size={22}
-        color={getWmoIconColor(day.weatherCode)}
-      />
-      <View style={styles.tempRange}>
-        <Text style={styles.tempHigh}>{Math.round(day.temperatureMax)}°</Text>
-        <Text style={styles.tempLow}>{Math.round(day.temperatureMin)}°</Text>
+    <View style={[styles.dayCard, isToday && styles.dayCardToday]}>
+      <View style={styles.dayCardHeader}>
+        <Text style={[styles.dayCardLabel, isToday && styles.dayCardLabelToday]}>
+          {isToday ? 'Today' : d.format('ddd')}
+        </Text>
+        <Text style={styles.dayCardDate}>{d.format('D MMM')}</Text>
       </View>
-      {day.precipitationSum > 0 && (
-        <Text style={styles.forecastRain}>{day.precipitationSum.toFixed(1)}mm</Text>
+
+      <View style={styles.dayCardSummary}>
+        <MaterialCommunityIcons
+          name={getWmoIcon(day.weatherCode) as keyof typeof MaterialCommunityIcons.glyphMap}
+          size={20}
+          color={getWmoIconColor(day.weatherCode)}
+        />
+        <Text style={styles.dayCardTempHigh}>{Math.round(day.temperatureMax)}°</Text>
+        <Text style={styles.dayCardTempLow}>{Math.round(day.temperatureMin)}°</Text>
+        {day.precipitationSum > 0 && (
+          <Text style={styles.dayCardRain}>{day.precipitationSum.toFixed(1)}mm</Text>
+        )}
+      </View>
+
+      {/* Part-of-day breakdown: Night / Morning / Afternoon / Evening */}
+      {day.parts.length > 0 && (
+        <View style={styles.partList}>
+          {day.parts.map((part) => (
+            <View key={part.startHour} style={styles.partRow}>
+              <Text style={styles.partLabel}>{part.label}</Text>
+              <MaterialCommunityIcons
+                name={getWmoIcon(part.weatherCode) as keyof typeof MaterialCommunityIcons.glyphMap}
+                size={14}
+                color={getWmoIconColor(part.weatherCode)}
+              />
+              <Text style={styles.partTemp}>{Math.round(part.temperatureMax)}°</Text>
+              {part.precipitationProbability >= 20 && (
+                <Text style={styles.partRainChance}>{part.precipitationProbability}%</Text>
+              )}
+            </View>
+          ))}
+        </View>
       )}
     </View>
   );
@@ -251,59 +274,97 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
 
-  dayColumn: {
-    alignItems: 'center',
+  dayCard: {
     backgroundColor: colors.surfaceElevated,
     borderRadius: borderRadius.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     marginRight: spacing.sm,
-    minWidth: 68,
+    minWidth: 152,
     gap: spacing.xs,
   },
 
-  dayColumnToday: {
+  dayCardToday: {
     backgroundColor: colors.calendarToday,
     borderWidth: 1,
     borderColor: colors.accent + '44',
   },
 
-  dayColumnLabel: {
+  dayCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+
+  dayCardLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: colors.text,
   },
 
-  dayColumnLabelToday: {
+  dayCardLabelToday: {
     color: colors.accent,
   },
 
-  dayColumnDate: {
+  dayCardDate: {
     fontSize: 10,
     color: colors.muted,
-    marginBottom: 2,
   },
 
-  tempRange: {
+  dayCardSummary: {
     flexDirection: 'row',
-    gap: 4,
-    alignItems: 'baseline',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
 
-  tempHigh: {
-    fontSize: 14,
+  dayCardTempHigh: {
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
   },
 
-  tempLow: {
+  dayCardTempLow: {
     fontSize: 12,
     fontWeight: '400',
     color: colors.muted,
   },
 
-  forecastRain: {
+  dayCardRain: {
     fontSize: 9,
     color: colors.info,
+    marginLeft: 'auto',
+  },
+
+  partList: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: spacing.xs,
+    gap: 2,
+  },
+
+  partRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+
+  partLabel: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: colors.muted,
+    width: 56,
+  },
+
+  partTemp: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text,
+  },
+
+  partRainChance: {
+    fontSize: 9,
+    color: colors.info,
+    marginLeft: 'auto',
   },
 });
