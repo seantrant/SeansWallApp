@@ -13,9 +13,15 @@ interface Props {
   weather: WeatherData | null;
   isLoading: boolean;
   error: string | null;
+  /**
+   * Compact mode shows only the 7-day daily forecast cards and hides the
+   * current-conditions block (temperature hero + detail chips) so the widget
+   * fits alongside Fitness and Records in the right column.
+   */
+  compact?: boolean;
 }
 
-export default function WeatherWidget({ weather, isLoading, error }: Props) {
+export default function WeatherWidget({ weather, isLoading, error, compact = false }: Props) {
   if (!weather && isLoading) {
     return (
       <View style={styles.container}>
@@ -48,8 +54,8 @@ export default function WeatherWidget({ weather, isLoading, error }: Props) {
     <View style={styles.container}>
       <WidgetHeader lastUpdated={weather.fetchedAt} />
 
-      {/* Current conditions */}
-      {current && (
+      {/* Current conditions (hidden in compact mode) */}
+      {current && !compact && (
         <View style={styles.currentSection}>
           <View style={styles.currentMain}>
             <MaterialCommunityIcons
@@ -79,7 +85,7 @@ export default function WeatherWidget({ weather, isLoading, error }: Props) {
       {/* 7-Day daily forecast */}
       {weather.dailyForecast.length > 0 && (
         <>
-          <View style={styles.separator} />
+          {!compact && <View style={styles.separator} />}
           <Text style={styles.sectionLabel}>7-Day Forecast</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.forecastScroll}>
             {weather.dailyForecast.map((day) => (

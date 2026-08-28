@@ -10,10 +10,11 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { loadSettings, saveSettings } from './src/storage';
 import { fetchCalendarEvents, fetchCalendars, resetClient } from './src/services/caldavService';
-import { fetchWeatherData } from './src/services/weatherService';
+import { fetchGarminData } from './src/services/garminService';
 import { fetchRecords, fetchServerHealth } from './src/services/seansAppService';
+import { fetchWeatherData } from './src/services/weatherService';
 
-import type { AppSettings, CalendarEvent, PersonalRecord, WeatherData } from './src/types';
+import type { AppSettings, CalendarEvent, GarminData, PersonalRecord, WeatherData } from './src/types';
 import { DEFAULT_SETTINGS } from './src/types';
 import { colors } from './src/ui';
 import { useMotionWake } from './src/useMotionWake';
@@ -41,6 +42,10 @@ export default function App() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
+
+  const [garmin, setGarmin] = useState<GarminData | null>(null);
+  const [garminLoading, setGarminLoading] = useState(false);
+  const [garminError, setGarminError] = useState<string | null>(null);
 
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -165,6 +170,26 @@ export default function App() {
     }
   }, [settings.weatherLocation]);
 
+  const refreshGarmin = useCallback(async () => {
+    if (!settings.serverUrl) {
+      setGarmin({ configured: false, error: null, fetchedAt: null, week: null, daily: [], byType: [], activities: [] });
+      return;
+    }
+
+    setGarminLoading(true);
+    setGarminError(null);
+    try {
+      const data = await fetchGarminData(settings.serverUrl);
+      setGarmin(data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Garmin fetch failed';
+      setGarminError(message);
+      console.warn('Garmin refresh error:', message);
+    } finally {
+      setGarminLoading(false);
+    }
+  }, [settings.serverUrl]);
+
   const refreshRecords = useCallback(async () => {
     if (!settings.serverUrl) return;
 
@@ -195,11 +220,13 @@ export default function App() {
 
     // Initial fetches
     refreshCalendar();
+    refreshGarmin();
     refreshWeather();
     refreshRecords();
 
     // Set up intervals
     intervalsRef.current.push(setInterval(refreshCalendar, intervalMs));
+    intervalsRef.current.push(setInterval(refreshGarmin, 15 * 60 * 1000)); // Garmin every 15 min
     intervalsRef.current.push(setInterval(refreshWeather, 15 * 60 * 1000)); // weather every 15 min
 
     // Schedule records refresh at 22:30 daily
@@ -227,7 +254,7 @@ export default function App() {
     return () => {
       for (const id of intervalsRef.current) clearInterval(id);
     };
-  }, [refreshCalendar, refreshWeather, refreshRecords, settings.refreshIntervalMinutes]);
+  }, [refreshCalendar, refreshGarmin, refreshRecords, refreshWeather, settings.refreshIntervalMinutes]);
 
   // ---- Settings handlers --------------------------------------------------
 
@@ -305,6 +332,10 @@ export default function App() {
         calendarEvents={calendarEvents}
         calendarLoading={calendarLoading}
         calendarError={calendarError}
+        garmin={garmin}
+        garminLoading={garminLoading}
+        garminError={garminError}
+        onRefreshGarmin={refreshGarmin}
         weather={weather}
         weatherLoading={weatherLoading}
         weatherError={weatherError}

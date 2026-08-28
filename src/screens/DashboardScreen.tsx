@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { CalendarEvent, PersonalRecord, WeatherData } from '../types';
+import type { CalendarEvent, GarminData, PersonalRecord, WeatherData } from '../types';
 import CalendarWidget from '../widgets/CalendarWidget';
+import GarminWidget from '../widgets/GarminWidget';
 import WeatherWidget from '../widgets/WeatherWidget';
 import SeansStuffWidget from '../widgets/SeansStuffWidget';
 import { colors, spacing, borderRadius } from '../ui';
@@ -11,9 +12,11 @@ import { colors, spacing, borderRadius } from '../ui';
 // DashboardScreen – Main kiosk layout
 //
 // Layout:  ┌──────────────────────┬──────────────┐
-//          │                      │   Weather     │
-//          │     Calendar         │              │
+//          │                      │    Fitness    │
+//          │     Calendar         │   (Garmin)    │
 //          │     (Month View)     ├──────────────┤
+//          │                      │ Weather (7d)  │
+//          │                      ├──────────────┤
 //          │                      │  SeansStuff   │
 //          │                      │  (Records)    │
 //          └──────────────────────┴──────────────┘
@@ -24,6 +27,12 @@ interface Props {
   calendarEvents: CalendarEvent[];
   calendarLoading: boolean;
   calendarError: string | null;
+
+  // Garmin fitness
+  garmin: GarminData | null;
+  garminLoading: boolean;
+  garminError: string | null;
+  onRefreshGarmin?: () => void;
 
   // Weather
   weather: WeatherData | null;
@@ -48,6 +57,10 @@ export default function DashboardScreen({
   calendarEvents,
   calendarLoading,
   calendarError,
+  garmin,
+  garminLoading,
+  garminError,
+  onRefreshGarmin,
   weather,
   weatherLoading,
   weatherError,
@@ -74,25 +87,43 @@ export default function DashboardScreen({
           </View>
         </View>
 
-        {/* Right column: Weather + SeansStuff (~40%) */}
+        {/* Right column: Fitness + Weather + SeansStuff (~40%).
+            Each card sizes to its full content (nothing is clipped); the
+            column scrolls vertically only when the screen is too short. */}
         <View style={styles.rightColumn}>
-          <View style={styles.widget}>
-            <WeatherWidget
-              weather={weather}
-              isLoading={weatherLoading}
-              error={weatherError}
-            />
-          </View>
+          <ScrollView
+            style={styles.rightScroll}
+            contentContainerStyle={styles.rightScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.widgetCard}>
+              <WeatherWidget
+                weather={weather}
+                isLoading={weatherLoading}
+                error={weatherError}
+                compact
+              />
+            </View>
 
-          <View style={styles.widget}>
-            <SeansStuffWidget
-              records={records}
-              isLoading={recordsLoading}
-              error={recordsError}
-              lastSyncedAt={recordsLastSynced}
-              onRefresh={onRefreshRecords}
-            />
-          </View>
+            <View style={[styles.widgetCard, styles.widgetGrow]}>
+              <GarminWidget
+                garmin={garmin}
+                isLoading={garminLoading}
+                error={garminError}
+                onRefresh={onRefreshGarmin}
+              />
+            </View>
+
+            <View style={styles.widgetCard}>
+              <SeansStuffWidget
+                records={records}
+                isLoading={recordsLoading}
+                error={recordsError}
+                lastSyncedAt={recordsLastSynced}
+                onRefresh={onRefreshRecords}
+              />
+            </View>
+          </ScrollView>
         </View>
       </View>
 
@@ -127,7 +158,33 @@ const styles = StyleSheet.create({
 
   rightColumn: {
     flex: 4, // ~40%
+  },
+
+  rightScroll: {
+    flex: 1,
+  },
+
+  rightScrollContent: {
+    flexGrow: 1,
     gap: spacing.md,
+  },
+
+  // Right-column cards size to their content so nothing is ever clipped.
+  // flexShrink: 0 guarantees they keep their full height (the column scrolls
+  // instead of squashing them). minHeight keeps empty/loading states looking
+  // like proper cards.
+  widgetCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    overflow: 'hidden',
+    flexShrink: 0,
+    minHeight: 180,
+  },
+
+  // The Garmin card absorbs leftover vertical space on tall screens.
+  widgetGrow: {
+    flexGrow: 1,
   },
 
   widget: {

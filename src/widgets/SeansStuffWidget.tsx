@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import dayjs from 'dayjs';
 import type { PersonalRecord } from '../types';
@@ -71,11 +71,11 @@ export default function SeansStuffWidget({
           </Text>
         </View>
       )}
-      <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+      <View style={styles.scrollArea}>
         {records.map((record) => (
           <RecordRow key={record.id} record={record} />
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }

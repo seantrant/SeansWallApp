@@ -98,6 +98,87 @@ export interface ServerSnapshot {
   records: PersonalRecord[];
 }
 
+// ---------------------------------------------------------------------------
+// Garmin fitness stats (normalized by SeansAppServer /api/garmin)
+// ---------------------------------------------------------------------------
+
+/** A single activity, reduced to the fields the kiosk widget uses. */
+export interface GarminActivity {
+  activityId: number;
+  name: string;
+  typeKey: string;       // canonical group key, e.g. 'running' | 'cycling' | 'strength'
+  typeLabel: string;     // friendly label, e.g. 'Running'
+  startTimeLocal: string;
+  startTimeGMT: string;
+  distance: number;      // meters
+  duration: number;      // seconds
+  elapsedDuration: number;
+  movingDuration: number;
+  calories: number;
+  averageHR: number;
+  maxHR: number;
+  averageSpeed: number;  // m/s
+  elevationGain: number; // meters
+  steps: number;
+}
+
+/** Per-activity-type rollup for the current window, with deltas vs prior week. */
+export interface GarminActivityTypeStat {
+  typeKey: string;
+  typeLabel: string;
+  count: number;
+  totalDuration: number;  // seconds
+  totalDistance: number;  // meters
+  totalCalories: number;
+  countDelta: number;
+  durationDelta: number;  // seconds
+  distanceDelta: number;  // meters
+}
+
+/** One activity's slice within a single day (for stacked bars). */
+export interface GarminDailyBreakdown {
+  typeKey: string;
+  typeLabel: string;
+  duration: number;  // seconds
+  distance: number;  // meters
+}
+
+/** A single day in the last-7-days chart. */
+export interface GarminDailyStat {
+  date: string;      // YYYY-MM-DD (local)
+  label: string;     // e.g. 'Mon'
+  activityCount: number;
+  totalDuration: number;  // seconds
+  totalDistance: number;  // meters
+  totalCalories: number;
+  breakdown: GarminDailyBreakdown[];
+}
+
+/** Rolling 7-day summary + deltas vs the prior 7 days. */
+export interface GarminWeekSummary {
+  activityCount: number;
+  totalDuration: number;  // seconds
+  totalDistance: number;  // meters
+  totalCalories: number;
+  countDelta: number;
+  durationDelta: number;  // seconds
+  distanceDelta: number;  // meters
+}
+
+/** The full payload served by GET /api/garmin. */
+export interface GarminData {
+  configured: boolean;
+  available?: boolean;
+  cached?: boolean;
+  error?: string | null;
+  fetchedAt?: string | null;
+  displayName?: string | null;
+  week: GarminWeekSummary | null;
+  daily: GarminDailyStat[];
+  byType: GarminActivityTypeStat[];
+  activities: GarminActivity[];
+}
+
 /** Persisted app settings. */
 export interface AppSettings {
   serverUrl: string;
